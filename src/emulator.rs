@@ -29,6 +29,9 @@ impl Emulator {
     pub fn run_frame(&mut self) {
         self.bus.ppu.take_frame_ready();
         while !self.bus.ppu.take_frame_ready() {
+            if self.bus.cart.borrow().irq_pending() {
+                self.cpu.irq_pending = true;
+            }
             self.cpu.step(&mut self.bus);
             if self.bus.ppu.take_nmi() {
                 self.cpu.nmi_pending = true;

@@ -1,7 +1,12 @@
 [package]
-name = "NES-Emualtor"
-version = "0.1.0"
+name = "nes-emulator"
+version = "1.1.0"
 edition = "2024"
+
+description = "NES/Famicom emulator written in Rust"
+license = "MIT"
+repository = "https://github.com/NuanRMxi-Lazy-Team/NES-Emulator"
+readme = "README.md"
 
 [dependencies]
 cpal = "0.18.2"

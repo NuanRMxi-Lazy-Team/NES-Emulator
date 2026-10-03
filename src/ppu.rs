@@ -443,6 +443,9 @@ impl Ppu {
             if self.dot == 340 {
                 self.load_sprite_patterns(cart);
             }
+            if self.dot == 260 {
+                cart.borrow_mut().clock_scanline();
+            }
         }
 
         if self.scanline >= 0 && self.scanline < 240 && self.dot >= 1 && self.dot <= 256 {
