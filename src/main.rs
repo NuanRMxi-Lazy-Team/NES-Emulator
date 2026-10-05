@@ -177,7 +177,7 @@ fn main() {
         _ => Scale::X4,
     };
 
-    let audio = Audio::new();
+    let mut audio = Audio::new();
 
     let mut emu = match Emulator::new(&rom, audio.sample_rate as f64) {
         Ok(e) => e,
@@ -241,6 +241,9 @@ fn main() {
             break;
         }
 
+        if audio.errored() {
+            audio.stop();
+        }
         if audio.has_output() {
             // Audio-driven pacing: keep a cushion (~50 ms) in the output buffer so the
             // hardware callback never runs dry (which would cause popping).

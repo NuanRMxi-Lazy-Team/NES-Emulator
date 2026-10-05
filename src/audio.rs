@@ -1,10 +1,16 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-fn err_fn(e: cpal::Error) {
-    eprintln!("audio stream error: {e}");
+fn err_fn(errored: Arc<AtomicBool>) -> impl FnMut(cpal::Error) + Send + 'static {
+    move |e| {
+        if !errored.swap(true, Ordering::SeqCst) {
+            eprintln!("audio stream error: {e}");
+            eprintln!("audio disabled; continuing without sound");
+        }
+    }
 }
 
 fn pop_sample(buffer: &Arc<Mutex<VecDeque<f32>>>) -> f32 {
@@ -18,6 +24,7 @@ fn pop_sample(buffer: &Arc<Mutex<VecDeque<f32>>>) -> f32 {
 pub struct Audio {
     pub sample_rate: u32,
     buffer: Arc<Mutex<VecDeque<f32>>>,
+    errored: Arc<AtomicBool>,
     _stream: Option<cpal::Stream>,
 }
 
@@ -43,6 +50,7 @@ impl Audio {
         let sample_rate = config.sample_rate;
         let channels = config.channels as usize;
         let buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
+        let errored = Arc::new(AtomicBool::new(false));
 
         let stream = match sample_format {
             SampleFormat::F32 => {
@@ -57,7 +65,7 @@ impl Audio {
                             }
                         }
                     },
-                    err_fn,
+                    err_fn(errored.clone()),
                     None,
                 )
             }
@@ -74,7 +82,7 @@ impl Audio {
                             }
                         }
                     },
-                    err_fn,
+                    err_fn(errored.clone()),
                     None,
                 )
             }
@@ -91,7 +99,7 @@ impl Audio {
                             }
                         }
                     },
-                    err_fn,
+                    err_fn(errored.clone()),
                     None,
                 )
             }
@@ -109,6 +117,7 @@ impl Audio {
                 Audio {
                     sample_rate,
                     buffer,
+                    errored,
                     _stream: Some(stream),
                 }
             }
@@ -127,6 +136,7 @@ impl Audio {
         Audio {
             sample_rate: rate,
             buffer: Arc::new(Mutex::new(VecDeque::new())),
+            errored: Arc::new(AtomicBool::new(false)),
             _stream: None,
         }
     }
@@ -141,7 +151,15 @@ impl Audio {
     }
 
     pub fn has_output(&self) -> bool {
-        self._stream.is_some()
+        self._stream.is_some() && !self.errored.load(Ordering::SeqCst)
+    }
+
+    pub fn errored(&self) -> bool {
+        self.errored.load(Ordering::SeqCst)
+    }
+
+    pub fn stop(&mut self) {
+        self._stream = None;
     }
 
     pub fn buffered(&self) -> usize {
